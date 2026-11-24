@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>60 坪 4 米挑高靜奢豪宅｜全屋 360° VR 線上賞屋</title>
+  <style>
+    :root {
+      --glass: rgba(22, 20, 18, 0.72);
+      --border: rgba(218, 194, 154, 0.42);
+      --gold: #e6cfa3;
+      --moss: #7a8d63;
+      --text: #f7f4ee;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+      background: #141210; color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+    /* 淡入淡出轉場遮罩 */
+    #fadeOverlay {
+      position: fixed; inset: 0; background: #141210; z-index: 40;
+      opacity: 0; pointer-events: none; transition: opacity 0.35s ease;
+    }
+    #fadeOverlay.active { opacity: 1; }
+
+    /* 載入畫面 */
+    #loader {
+      position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px;
+      background: radial-gradient(circle at center, #25201a 0%, #12100e 100%);
+      transition: opacity 0.5s ease;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 3px solid rgba(230,207,163,0.2); border-top-color: var(--gold);
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loaderTitle { font-size: 17px; color: var(--gold); letter-spacing: 1px; font-weight: 600; }
+    #loaderSub { font-size: 13px; color: #cbc4b8; }
+
+    /* 頂部空間資訊列 */
+    #topBar {
+      position: fixed; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; z-index: 20;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+      pointer-events: none;
+    }
+    #roomBadge {
+      pointer-events: auto;
+      background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border); border-radius: 14px; padding: 10px 15px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.38); max-width: 72vw;
+    }
+    #roomBadge .eyebrow { font-size: 11px; color: var(--gold); letter-spacing: 0.8px; opacity: 0.9; }
+    #roomBadge .title { font-size: 16px; font-weight: 700; margin-top: 2px; color: #fff; }
+    #roomBadge .desc { font-size: 12px; color: #d8d2c7; margin-top: 2px; line-height: 1.35; }
+
+    #topActions {
+      pointer-events: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
+    }
+    .iconBtn {
+      background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border); color: var(--text);
+      border-radius: 999px; height: 40px; padding: 0 13px; font-size: 13px; font-weight: 500;
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.32); transition: 0.2s;
+    }
+    .iconBtn.active, .iconBtn:active { background: rgba(218,194,154,0.28); border-color: var(--gold); color: #fff; }
+
+    /* 3D 空間互動跳轉熱點 */
+    #hotspotLayer { position: fixed; inset: 0; pointer-events: none; z-index: 15; overflow: hidden; }
+    .hotspot {
+      position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(20, 18, 15, 0.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: 1.5px solid rgba(230, 207, 163, 0.85); color: #fff;
+      padding: 7px 13px 7px 9px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      white-space: nowrap; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+      transition: transform 0.2s, background 0.2s;
+    }
+    .hotspot:hover, .hotspot:active { transform: translate(-50%, -50%) scale(1.08); background: rgba(122, 141, 99, 0.92); }
+    .hotspot .dot {
+      width: 12px; height: 12px; border-radius: 50%; background: var(--gold);
+      box-shadow: 0 0 0 4px rgba(230, 207, 163, 0.3);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(230, 207, 163, 0.35); }
+      50% { box-shadow: 0 0 0 8px rgba(230, 207, 163, 0.05); }
+    }
+
+    /* 可收合 60 坪互動平面圖 */
+    #minimapBox {
+      position: fixed; right: 12px; bottom: calc(82px + env(safe-area-inset-bottom)); z-index: 22;
+      background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border); border-radius: 14px; padding: 10px;
+      width: min(260px, 68vw); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+    #minimapBox.collapsed { transform: translateY(16px) scale(0.92); opacity: 0; pointer-events: none; }
+    #minimapHeader { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--gold); margin-bottom: 6px; }
+    #minimapSvg { width: 100%; height: auto; display: block; border-radius: 8px; background: rgba(255,255,255,0.04); }
+    .mapPin { cursor: pointer; transition: 0.2s; }
+
+    /* 底部 6 大空間快速切換膠囊列 (單手滑動友好) */
+    #bottomNav {
+      position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 10px; right: 10px; z-index: 20;
+      display: flex; justify-content: center; pointer-events: none;
+    }
+    #roomPills {
+      pointer-events: auto;
+      display: flex; gap: 7px; overflow-x: auto; max-width: 100%;
+      padding: 7px 10px; border-radius: 999px;
+      background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border); box-shadow: 0 8px 26px rgba(0,0,0,0.45);
+      scrollbar-width: none;
+    }
+    #roomPills::-webkit-scrollbar { display: none; }
+    .pill {
+      flex: 0 0 auto; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04);
+      color: #e6e0d6; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: 0.2s; white-space: nowrap;
+    }
+    .pill.active {
+      background: linear-gradient(135deg, #c9ab78, #9c7e4e); color: #15120e;
+      border-color: #f3dfb8; font-weight: 700;
+    }
+
+    /* 手勢提示 */
+    #hint {
+      position: fixed; bottom: calc(74px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+      z-index: 18; background: rgba(0,0,0,0.52); color: #e9e3d9; font-size: 12px;
+      padding: 5px 12px; border-radius: 999px; pointer-events: none;
+      transition: opacity 0.6s ease; white-space: nowrap;
+    }
+    #hint.hidden { opacity: 0; }
+  </style>
+</head>
+<body>
+  <div id="loader">
+    <div class="spinner"></div>
+    <div id="loaderTitle">60 坪靜奢豪宅｜全屋 360° VR 賞屋</div>
+    <div id="loaderSub">正在載入高畫質全景空間...</div>
+  </div>
+  <div id="fadeOverlay"></div>
+
+  <div id="topBar">
+    <div id="roomBadge">
+      <div class="eyebrow">60 坪・樓高 4 米・兩房兩衛一廳</div>
+      <div class="title" id="roomTitle">大客廳 Living Lounge</div>
+      <div class="desc" id="roomDesc">圓形暖金光暈木皮天井・苔蘚綠圓毯・燕麥白羊羔絨軟裝</div>
+    </div>
+    <div id="topActions">
+      <button class="iconBtn" id="btnGyro" title="手機體感環視">📱 體感</button>
+      <button class="iconBtn" id="btnMap" title="開啟平面圖">🗺️ 平面圖</button>
+      <button class="iconBtn active" id="btnAuto" title="自動環視">⟳ 環視</button>
+    </div>
+  </div>
+
+  <div id="hotspotLayer"></div>
+
+  <div id="minimapBox" class="collapsed">
+    <div id="minimapHeader">
+      <span>60 坪平面圖（點擊房間跳轉）</span>
+      <span id="btnCloseMap" style="cursor:pointer;padding:2px 6px;">✕</span>
+    </div>
+    <svg id="minimapSvg" viewBox="0 0 165 120">
+      <!-- 建築外框 16.5m x 12.0m (SVG Y=0 在北面窗戶，Y=120 在南面大門) -->
+      <rect x="1" y="1" width="163" height="118" fill="#1e1b18" stroke="#cbb082" stroke-width="1.4" rx="2"/>
+      <!-- 房間分區線 -->
+      <line x1="105" y1="1" x2="105" y2="119" stroke="#8a795d" stroke-width="1"/>
+      <line x1="105" y1="60" x2="164" y2="60" stroke="#8a795d" stroke-width="1"/>
+      <line x1="105" y1="88" x2="164" y2="88" stroke="#8a795d" stroke-width="1"/>
+      <line x1="135" y1="60" x2="135" y2="88" stroke="#8a795d" stroke-width="1"/>
+      <!-- 全景落地窗標示 -->
+      <line x1="18" y1="1.5" x2="96" y2="1.5" stroke="#8cc3f0" stroke-width="2.5"/>
+      <line x1="113" y1="1.5" x2="157" y2="1.5" stroke="#8cc3f0" stroke-width="2.5"/>
+      <!-- 房間名稱 -->
+      <text x="42" y="45" fill="#d8cfc0" font-size="7.5" text-anchor="middle">大客廳</text>
+      <text x="82" y="58" fill="#d8cfc0" font-size="7" text-anchor="middle">餐廚中島</text>
+      <text x="22" y="106" fill="#d8cfc0" font-size="6.5" text-anchor="middle">玄關</text>
+      <text x="135" y="34" fill="#d8cfc0" font-size="7.5" text-anchor="middle">主臥套房</text>
+      <text x="120" y="76" fill="#a89f90" font-size="5.5" text-anchor="middle">客衛</text>
+      <text x="150" y="76" fill="#d8cfc0" font-size="6" text-anchor="middle">主衛SPA</text>
+      <text x="135" y="106" fill="#d8cfc0" font-size="7" text-anchor="middle">次臥室</text>
+      <!-- 動態視角雷達扇形 -->
+      <g id="radarCone"></g>
+      <!-- 可點擊的 6 個空間點位 -->
+      <g id="mapPins"></g>
+    </svg>
+  </div>
+
+  <div id="hint">👆 手指滑動 360° 環視・雙指縮放・點擊光點切換空間</div>
+
+  <div id="bottomNav">
+    <div id="roomPills"></div>
+  </div>
+
+  <script src="./three.min.js"></script>
+  <script>
+    // =========================================================================
+    // 60 坪 6 大空間 360° VR 資料設定
+    // 座標對應：Blender 世界座標 (x: 0..16.5, y: 0..12.0)
+    // 在球體內部 (geom.scale(-1,1,1)) 與 Blender rot=(90,0,0) 的方位角對應：
+    // yaw 0° = 北 (+Y 落地窗), 90° = 東 (+X 餐廳/臥室), -90° = 西 (-X 橡木畫牆), 180° = 南 (-Y 玄關/中島)
+    // =========================================================================
+    const ROOMS = {
+      living: {
+        id: "living",
+        short: "大客廳",
+        title: "大客廳 Living Lounge",
+        desc: "4 米圓形暖金天井・溫潤橡木抽象畫牆・苔蘚綠圓毯・鼠尾草綠腳茶几",
+        img: "panos/01_living.jpg",
+        pos: [3.85, 6.75],
+        initYaw: -25,
+        hotspots: [
+          { target: "dining", label: "餐廳＆中島廚房", yaw: 105, pitch: -10 },
+          { target: "foyer",  label: "玄關門廊",       yaw: -158, pitch: -10 },
+          { target: "master", label: "主臥總統套房",   yaw: 74,  pitch: -4 }
+        ]
+      },
+      dining: {
+        id: "dining",
+        short: "餐廚中島",
+        title: "餐廳＆精品中島廚房",
+        desc: "6 人高訂紅酒餐桌・雪花石線性吊燈・懸浮底光中島・義式咖啡機與紅酒櫃",
+        img: "panos/02_dining.jpg",
+        pos: [7.90, 5.65],
+        initYaw: 165,
+        hotspots: [
+          { target: "living",   label: "返回 大客廳",   yaw: -74, pitch: -8 },
+          { target: "master",   label: "進入 主臥套房", yaw: 62,  pitch: -6 },
+          { target: "bedroom2", label: "進入 次臥室",   yaw: 148, pitch: -8 }
+        ]
+      },
+      foyer: {
+        id: "foyer",
+        short: "玄關門廊",
+        title: "玄關門廊 Entry Foyer",
+        desc: "溫潤自然橡木門廊框景・懸浮發光鞋櫃・羅紋橡木圓桌與酒紅花藝",
+        img: "panos/03_foyer.jpg",
+        pos: [2.10, 1.85],
+        initYaw: 15,
+        hotspots: [
+          { target: "living", label: "步入 大客廳",   yaw: 20, pitch: -8 },
+          { target: "dining", label: "前往 餐廚中島", yaw: 58, pitch: -8 }
+        ]
+      },
+      master: {
+        id: "master",
+        short: "主臥套房",
+        title: "主臥總統套房 Master Suite",
+        desc: "4 米橡木洗牆光・月蝕背光圓雕・茶色精品玻璃更衣室・雪花石蘑菇燈",
+        img: "panos/04_master.jpg",
+        pos: [12.85, 9.05],
+        initYaw: 95,
+        hotspots: [
+          { target: "mbath",  label: "進入 主衛浴 SPA", yaw: 152, pitch: -8 },
+          { target: "dining", label: "返回 餐廳客廳",   yaw: -130, pitch: -8 }
+        ]
+      },
+      mbath: {
+        id: "mbath",
+        short: "主衛 SPA",
+        title: "主衛浴 SPA Sanctuary",
+        desc: "2K 霧面萊姆石大板・中空獨立蛋形浴缸・橡木泡澡托盤・發光石材壁龕",
+        img: "panos/05_mbath.jpg",
+        pos: [14.70, 4.72],
+        initYaw: 145,
+        hotspots: [
+          { target: "master", label: "返回 主臥套房", yaw: 8, pitch: -8 }
+        ]
+      },
+      bedroom2: {
+        id: "bedroom2",
+        short: "次臥室",
+        title: "次臥室套房 Guest Suite",
+        desc: "溫潤橡木洗牆床頭・抽象藝術掛畫・獨立書桌閱讀區・亞麻落地紗簾",
+        img: "panos/06_bedroom2.jpg",
+        pos: [12.90, 1.68],
+        initYaw: 85,
+        hotspots: [
+          { target: "dining", label: "返回 餐廚客廳", yaw: -92, pitch: -8 }
+        ]
+      }
+    };
+
+    // Three.js 初始化
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+    document.body.appendChild(renderer.domElement);
+
+    const sphereGeo = new THREE.SphereGeometry(500, 72, 48);
+    sphereGeo.scale(-1, 1, 1);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    // 對齊 Blender Equirectangular: 讓 Three.js 的 yaw=0 指向正北 (+Y)
+    sphereMesh.rotation.y = Math.PI / 2;
+    scene.add(sphereMesh);
+
+    const texLoader = new THREE.TextureLoader();
+    const texCache = {};
+    let currentRoomId = "living";
+    let yaw = ROOMS.living.initYaw;
+    let pitch = 0;
+    let targetYaw = yaw;
+    let targetPitch = pitch;
+    let autoRotate = true;
+    let gyroEnabled = false;
+    let isFirstLoad = true;
+
+    function configureTex(tex) {
+      if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+      tex.minFilter = THREE.LinearFilter;
+      return tex;
+    }
+
+    // 預載入相鄰房間貼圖讓手機切換零延遲
+    function preloadTexture(roomId) {
+      const r = ROOMS[roomId];
+      if (!r || texCache[roomId]) return;
+      texLoader.load(r.img, tex => {
+        texCache[roomId] = configureTex(tex);
+      });
+    }
+
+    // 房間切換核心函式
+    function goToRoom(roomId, instant = false) {
+      const room = ROOMS[roomId];
+      if (!room) return;
+      const overlay = document.getElementById("fadeOverlay");
+      const applyRoom = (tex) => {
+        sphereMat.map = tex;
+        sphereMat.needsUpdate = true;
+        currentRoomId = roomId;
+        yaw = targetYaw = room.initYaw;
+        pitch = targetPitch = 0;
+        camera.fov = window.innerWidth < 600 ? 82 : 74;
+        camera.updateProjectionMatrix();
+
+        document.getElementById("roomTitle").textContent = room.title;
+        document.getElementById("roomDesc").textContent = room.desc;
+        renderRoomPills();
+        renderHotspots();
+        renderMinimapPins();
+
+        // 預載相鄰房間
+        room.hotspots.forEach(h => preloadTexture(h.target));
+
+        if (isFirstLoad) {
+          isFirstLoad = false;
+          document.getElementById("loader").classList.add("hidden");
+          setTimeout(() => document.getElementById("hint").classList.add("hidden"), 5500);
+        }
+        setTimeout(() => overlay.classList.remove("active"), 80);
+      };
+
+      if (!instant) overlay.classList.add("active");
+      setTimeout(() => {
+        if (texCache[roomId]) {
+          applyRoom(texCache[roomId]);
+        } else {
+          texLoader.load(room.img, tex => {
+            texCache[roomId] = configureTex(tex);
+            applyRoom(tex);
+          }, undefined, () => {
+            document.getElementById("loaderSub").textContent = "載入失敗，請重新整理網頁";
+          });
+        }
+      }, instant ? 0 : 280);
+    }
+
+    // 渲染底部空間膠囊按鈕
+    function renderRoomPills() {
+      const box = document.getElementById("roomPills");
+      box.innerHTML = "";
+      Object.values(ROOMS).forEach(r => {
+        const btn = document.createElement("button");
+        btn.className = "pill" + (r.id === currentRoomId ? " active" : "");
+        btn.textContent = r.short;
+        btn.onclick = () => { if (r.id !== currentRoomId) goToRoom(r.id); };
+        box.appendChild(btn);
+      });
+    }
+
+    // 渲染 3D 互動熱點 DOM
+    let hotspotEls = [];
+    function renderHotspots() {
+      const layer = document.getElementById("hotspotLayer");
+      layer.innerHTML = "";
+      hotspotEls = [];
+      const room = ROOMS[currentRoomId];
+      room.hotspots.forEach(h => {
+        const el = document.createElement("div");
+        el.className = "hotspot";
+        el.innerHTML = `<span class="dot"></span><span>${h.label}</span>`;
+        el.onclick = (e) => { e.stopPropagation(); goToRoom(h.target); };
+        layer.appendChild(el);
+        hotspotEls.push({ el, yaw: h.yaw, pitch: h.pitch });
+      });
+    }
+
+    // 渲染可互動平面圖點位
+    function renderMinimapPins() {
+      const g = document.getElementById("mapPins");
+      g.innerHTML = "";
+      Object.values(ROOMS).forEach(r => {
+        const cx = r.pos[0] * 10;
+        const cy = (12.0 - r.pos[1]) * 10;
+        const active = r.id === currentRoomId;
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", cx);
+        c.setAttribute("cy", cy);
+        c.setAttribute("r", active ? 5.2 : 3.8);
+        c.setAttribute("fill", active ? "#e6cfa3" : "#7a8d63");
+        c.setAttribute("stroke", "#141210");
+        c.setAttribute("stroke-width", "1.2");
+        c.setAttribute("class", "mapPin");
+        c.addEventListener("click", () => { if (r.id !== currentRoomId) goToRoom(r.id); });
+        g.appendChild(c);
+      });
+    }
+
+    function updateRadar() {
+      const r = ROOMS[currentRoomId];
+      const cx = r.pos[0] * 10;
+      const cy = (12.0 - r.pos[1]) * 10;
+      const rad = THREE.MathUtils.degToRad(yaw - 90);
+      const spread = 0.55;
+      const len = 18;
+      const x1 = cx + len * Math.cos(rad - spread);
+      const y1 = cy + len * Math.sin(rad - spread);
+      const x2 = cx + len * Math.cos(rad + spread);
+      const y2 = cy + len * Math.sin(rad + spread);
+      document.getElementById("radarCone").innerHTML =
+        `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${len} ${len} 0 0 1 ${x2} ${y2} Z" fill="rgba(230,207,163,0.34)"/>`;
+    }
+
+    // 觸控拖曳 + 雙指縮放 + 滑鼠拖曳 (平滑慣性)
+    let isDragging = false, lastX = 0, lastY = 0, pinchDist = 0;
+    const dom = renderer.domElement;
+
+    dom.addEventListener("pointerdown", e => {
+      if (e.pointerType === "touch" && pinchDist > 0) return;
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      document.getElementById("hint").classList.add("hidden");
+    });
+    window.addEventListener("pointermove", e => {
+      if (!isDragging || pinchDist > 0) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      const sens = camera.fov / 420;
+      targetYaw -= dx * sens;
+      targetPitch = Math.max(-80, Math.min(80, targetPitch + dy * sens));
+    });
+    window.addEventListener("pointerup", () => { isDragging = false; });
+
+    dom.addEventListener("touchstart", e => {
+      if (e.touches.length === 2) {
+        isDragging = false;
+        pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      }
+    }, { passive: true });
+    dom.addEventListener("touchmove", e => {
+      if (e.touches.length === 2 && pinchDist > 0) {
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        camera.fov = Math.max(40, Math.min(100, camera.fov - (d - pinchDist) * 0.12));
+        camera.updateProjectionMatrix();
+        pinchDist = d;
+      }
+    }, { passive: true });
+    dom.addEventListener("touchend", () => { pinchDist = 0; }, { passive: true });
+
+    dom.addEventListener("wheel", e => {
+      camera.fov = Math.max(40, Math.min(100, camera.fov + e.deltaY * 0.04));
+      camera.updateProjectionMatrix();
+    }, { passive: true });
+
+    // 手機陀螺儀體感環視
+    function handleOrientation(e) {
+      if (!gyroEnabled || e.alpha === null) return;
+      targetYaw = -e.alpha;
+      targetPitch = Math.max(-75, Math.min(75, (e.beta || 90) - 90));
+    }
+    document.getElementById("btnGyro").onclick = async (ev) => {
+      if (!gyroEnabled) {
+        if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+          try {
+            const res = await DeviceOrientationEvent.requestPermission();
+            if (res !== "granted") return;
+          } catch { return; }
+        }
+        gyroEnabled = true;
+        autoRotate = false;
+        document.getElementById("btnAuto").classList.remove("active");
+        ev.currentTarget.classList.add("active");
+        window.addEventListener("deviceorientation", handleOrientation);
+      } else {
+        gyroEnabled = false;
+        ev.currentTarget.classList.remove("active");
+        window.removeEventListener("deviceorientation", handleOrientation);
+      }
+    };
+
+    document.getElementById("btnAuto").onclick = (ev) => {
+      autoRotate = !autoRotate;
+      ev.currentTarget.classList.toggle("active", autoRotate);
+    };
+    const mapBox = document.getElementById("minimapBox");
+    document.getElementById("btnMap").onclick = (ev) => {
+      const open = mapBox.classList.toggle("collapsed");
+      ev.currentTarget.classList.toggle("active", !open);
+    };
+    document.getElementById("btnCloseMap").onclick = () => {
+      mapBox.classList.add("collapsed");
+      document.getElementById("btnMap").classList.remove("active");
+    };
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // 將方位角轉換為 Three.js 3D 方向向量 (yaw 0° = -Z, yaw 90° = +X)
+    function yawPitchToVec(yDeg, pDeg, radius = 400) {
+      const phi = THREE.MathUtils.degToRad(90 - pDeg);
+      const theta = THREE.MathUtils.degToRad(yDeg);
+      return new THREE.Vector3(
+        radius * Math.sin(phi) * Math.sin(theta),
+        radius * Math.cos(phi),
+        -radius * Math.sin(phi) * Math.cos(theta)
+      );
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (autoRotate && !isDragging && !gyroEnabled) targetYaw += 0.07;
+      yaw += (targetYaw - yaw) * 0.12;
+      pitch += (targetPitch - pitch) * 0.12;
+
+      const lookVec = yawPitchToVec(yaw, pitch, 500);
+      camera.lookAt(lookVec);
+      renderer.render(scene, camera);
+
+      // 投影更新 3D 空間熱點按鈕位置
+      const camDir = new THREE.Vector3();
+      camera.getWorldDirection(camDir);
+      hotspotEls.forEach(item => {
+        const v = yawPitchToVec(item.yaw, item.pitch, 400);
+        const dot = v.clone().normalize().dot(camDir);
+        if (dot > 0.15) {
+          v.project(camera);
+          const sx = (v.x * 0.5 + 0.5) * window.innerWidth;
+          const sy = (-v.y * 0.5 + 0.5) * window.innerHeight;
+          item.el.style.display = "flex";
+          item.el.style.left = sx + "px";
+          item.el.style.top = sy + "px";
+        } else {
+          item.el.style.display = "none";
+        }
+      });
+
+      if (!mapBox.classList.contains("collapsed")) updateRadar();
+    }
+
+    goToRoom("living", true);
+    animate();
+  </script>
+</body>
+</html>

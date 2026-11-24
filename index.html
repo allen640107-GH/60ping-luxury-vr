@@ -219,11 +219,11 @@
         desc: "4 米圓形暖金天井・溫潤橡木抽象畫牆・苔蘚綠圓毯・鼠尾草綠腳茶几",
         img: "panos/01_living.jpg",
         pos: [3.85, 6.75],
-        initYaw: -25,
+        initYaw: -18,
         hotspots: [
-          { target: "dining", label: "餐廳＆中島廚房", yaw: 105, pitch: -10 },
-          { target: "foyer",  label: "玄關門廊",       yaw: -158, pitch: -10 },
-          { target: "master", label: "主臥總統套房",   yaw: 74,  pitch: -4 }
+          { target: "dining", label: "餐廳＆中島廚房", toPos: [7.90, 5.65],  pitch: -10 },
+          { target: "foyer",  label: "玄關門廊",       toPos: [2.10, 1.85],  pitch: -8 },
+          { target: "master", label: "主臥總統套房",   toPos: [10.50, 6.90], pitch: -5 }
         ]
       },
       dining: {
@@ -233,11 +233,12 @@
         desc: "6 人高訂紅酒餐桌・雪花石線性吊燈・懸浮底光中島・義式咖啡機與紅酒櫃",
         img: "panos/02_dining.jpg",
         pos: [7.90, 5.65],
-        initYaw: 165,
+        initYaw: 170,
         hotspots: [
-          { target: "living",   label: "返回 大客廳",   yaw: -74, pitch: -8 },
-          { target: "master",   label: "進入 主臥套房", yaw: 62,  pitch: -6 },
-          { target: "bedroom2", label: "進入 次臥室",   yaw: 148, pitch: -8 }
+          { target: "living",   label: "返回 大客廳",   toPos: [3.85, 6.75],  pitch: -8 },
+          { target: "foyer",    label: "前往 玄關門廊", toPos: [2.10, 1.85],  pitch: -8 },
+          { target: "master",   label: "進入 主臥套房", toPos: [10.50, 6.90], pitch: -6 },
+          { target: "bedroom2", label: "進入 次臥室",   toPos: [10.50, 1.68], pitch: -8 }
         ]
       },
       foyer: {
@@ -247,10 +248,10 @@
         desc: "溫潤自然橡木門廊框景・懸浮發光鞋櫃・羅紋橡木圓桌與酒紅花藝",
         img: "panos/03_foyer.jpg",
         pos: [2.10, 1.85],
-        initYaw: 15,
+        initYaw: 18,
         hotspots: [
-          { target: "living", label: "步入 大客廳",   yaw: 20, pitch: -8 },
-          { target: "dining", label: "前往 餐廚中島", yaw: 58, pitch: -8 }
+          { target: "living", label: "步入 大客廳",   toPos: [3.85, 6.75], pitch: -8 },
+          { target: "dining", label: "前往 餐廚中島", toPos: [7.90, 5.65], pitch: -8 }
         ]
       },
       master: {
@@ -260,10 +261,10 @@
         desc: "4 米橡木洗牆光・月蝕背光圓雕・茶色精品玻璃更衣室・雪花石蘑菇燈",
         img: "panos/04_master.jpg",
         pos: [12.85, 9.05],
-        initYaw: 95,
+        initYaw: 92,
         hotspots: [
-          { target: "mbath",  label: "進入 主衛浴 SPA", yaw: 152, pitch: -8 },
-          { target: "dining", label: "返回 餐廳客廳",   yaw: -130, pitch: -8 }
+          { target: "mbath",  label: "進入 主衛浴 SPA", toPos: [14.72, 6.00], pitch: -8 },
+          { target: "dining", label: "返回 餐廳客廳",   toPos: [10.50, 6.90], pitch: -8 }
         ]
       },
       mbath: {
@@ -273,9 +274,9 @@
         desc: "2K 霧面萊姆石大板・中空獨立蛋形浴缸・橡木泡澡托盤・發光石材壁龕",
         img: "panos/05_mbath.jpg",
         pos: [14.70, 4.72],
-        initYaw: 145,
+        initYaw: 155,
         hotspots: [
-          { target: "master", label: "返回 主臥套房", yaw: 8, pitch: -8 }
+          { target: "master", label: "返回 主臥套房", toPos: [14.72, 6.00], pitch: -8 }
         ]
       },
       bedroom2: {
@@ -285,12 +286,21 @@
         desc: "溫潤橡木洗牆床頭・抽象藝術掛畫・獨立書桌閱讀區・亞麻落地紗簾",
         img: "panos/06_bedroom2.jpg",
         pos: [12.90, 1.68],
-        initYaw: 85,
+        initYaw: 88,
         hotspots: [
-          { target: "dining", label: "返回 餐廚客廳", yaw: -92, pitch: -8 }
+          { target: "dining", label: "返回 餐廚客廳", toPos: [10.50, 1.68], pitch: -8 }
         ]
       }
     };
+
+    // 依平面圖真實座標自動計算每一個熱點的精準 360° 方位角 (0°=北/+Y, +90°=東/+X, -90°=西/-X, ±180°=南/-Y)
+    Object.values(ROOMS).forEach(r => {
+      r.hotspots.forEach(h => {
+        const dx = h.toPos[0] - r.pos[0];
+        const dy = h.toPos[1] - r.pos[1];
+        h.yaw = Math.atan2(dx, dy) * 180 / Math.PI;
+      });
+    });
 
     // Three.js 初始化
     const scene = new THREE.Scene();
@@ -305,8 +315,9 @@
     sphereGeo.scale(-1, 1, 1);
     const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
-    // 對齊 Blender Equirectangular: 讓 Three.js 的 yaw=0 指向正北 (+Y)
-    sphereMesh.rotation.y = Math.PI / 2;
+    // 精準對齊 Blender Equirectangular 球面 UV：
+    // sphereGeo.scale(-1,1,1) 後 u=0.5(北/+Y) 在 -X，旋轉 -90° 後精準對齊 -Z (yaw=0°=北, +90°=東, -90°=西, 180°=南)
+    sphereMesh.rotation.y = -Math.PI / 2;
     scene.add(sphereMesh);
 
     const texLoader = new THREE.TextureLoader();
